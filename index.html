@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <title>過去問道場苦手分析</title>
+  </head>
+  <body>
+    <p>過去問道場のCSVを読み込んで正答率の低い順で並べます。苦手な分野を把握するのに使います。
+    <p>読み込むCSVはなるべく初見で解いたやつで、ファイル数は多い方がいいと思います。
+    <figure>
+      <img src="csv.png" alt="説明画像" style="border:1px solid black">
+      <figcaption>CSVは「成績詳細」から「CSV形式でダウンロード」を押すと取得できます。</figcaption>
+    </figure>
+    <ol>
+      <li>まずCSVを読み込みます(複数指定可、拡張子csv以外は無視されます)→<input type="file" accept=".csv" multiple>
+      <li>次に並べたい列名を指定します→<select></select>
+    </ol>
+    <table border="1"><thead><tr><th>項目<th>正答数<th>正答率</thead><tbody></tbody></table>
+    <script>
+const select = document.querySelector('select');
+const tbody = document.querySelector('tbody');
+const data = [];
+select.onchange = function () {
+  tbody.innerHTML = '';
+  const items = {};
+  data.forEach(line => {
+    const item = items[line[this.value]] ||= {correct: 0, total: 0};
+    item.total++;
+    if (line['正誤'] === '○')
+      item.correct++;
+  });
+  Object
+    .entries(items)
+    .map(entry => [entry[0], entry[1].correct + '/' + entry[1].total, Math.round((entry[1].correct / entry[1].total) * 1000) / 10])
+    .sort((a, b) => a[2] - b[2])
+    .forEach((cells, i) => cells.forEach(cell => (tbody.rows[i] || tbody.insertRow()).insertCell().textContent = cell));
+};
+document.querySelector('input[type=file]').onchange = async function () {
+  let columns = ['中分類', '大分類', '分野名', '分野', '細目'], header;
+  data.length = 0;
+  this.disabled = true;
+  await Promise.all(Array.from(this.files).filter(f => f.name.endsWith('.csv')).map(f => new Promise(resolve => {
+    const reader = new FileReader();
+    reader.readAsText(f, 'Shift_JIS');
+    reader.onload = () => {
+      const lines = reader.result.replace(/^\s+|\s+$|"[^"]*"/g, '').split(/[\r\n]+/);
+      header = lines.shift().split(',');
+      columns = columns.filter(column => header.includes(column));
+      lines.forEach(line => data.push(Object.fromEntries(line.split(',').map((value, i) => [header[i], value]))));
+      resolve();
+    };
+  })));
+  this.disabled = false;
+  select.innerHTML = '';
+  (columns.length ? columns : header).forEach(column => select.add(new Option(column)));
+  select.onchange();
+};
+onunhandledrejection = onerror = alert;
+    </script>
+  </body>
+</html>
